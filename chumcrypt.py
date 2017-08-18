@@ -42,37 +42,42 @@ class ChumCipher(object):
     MIN_IV_LEN = 16
 
     def __init__(self, key='', iv='', entropy='', hashfunc=hashlib.sha256):
+        # A
         if (len(iv) + len(entropy)) < self.MIN_IV_LEN:
             err_msg = 'Not enough IV or entropy material: '
             err_msg += 'len(iv) + len(entropy) < {0}'.format(self.MIN_IV_LEN)
             raise Exception(err_msg)
-        ##
+        # V
         self._key = key
         self._iv = iv
         self._entropy = entropy
         self._state = ''
         self._counter = 0
         self._buffer = ''
-        ##
+        # C
         pass
 
     def inc(self):
         ''' grow buffer with one block
         '''
+        # A
         assert self._buffer == ''
-        ##
+        # V
         entropy = self._entropy
         block_id = struct.pack('I', self._counter)
         iv = self._iv
-        ##
+        # C
         block = hmac.new(self._key,
                          entropy + iv + block_id).digest()
         self._buffer += block
         self._counter += 1
 
     def read(self, n):
-        'return n bytes from buffer'
+        ''' return n bytes from buffer
+        '''
+        # V
         res = ''
+        # C
         while n > 0:
             batch_size = min(n, 16)
             curr, self._buffer = self._buffer[:batch_size], \
@@ -87,22 +92,27 @@ class ChumCipher(object):
 class ChumXOR(object):
 
     def __init__(self, cipher, f):
-        'read and xor data from file-like objects (fa, fb)'
+        ''' read and xor data from file-like objects (fa, fb)
+        '''
         self._cipher = cipher
         self._f = f
 
     def xor(self, s1, s2):
-        'xor two strings'
+        ''' xor two strings
+        '''
+        # A
         assert len(s1) == len(s2)
-        #
+        # C
         x = [chr(ord(a) ^ ord(b)) for a, b in zip(s1, s2)]
         return ''.join(x)
 
     def read(self, n):
-        'read and xor n bytes from fa and fb'
-        # broken
+        ''' read and xor n bytes from fa and fb
+        '''
+        # V_
         buf = self._f.read(n)
         chum = self._cipher.read(n)
+        # C_
         return self.xor(buf, chum)
 
 
