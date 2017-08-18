@@ -39,34 +39,32 @@ class ChumCipher(object):
     standard library.
     '''
 
-    MIN_IV_LEN = 8
+    MIN_IV_LEN = 16
 
     def __init__(self, key='', iv='', entropy='', hashfunc=hashlib.sha256):
+        if (len(iv) + len(entropy)) < self.MIN_IV_LEN:
+            err_msg = 'Not enough IV or entropy material: '
+            err_msg += 'len(iv) + len(entropy) < {0}'.format(self.MIN_IV_LEN)
+            raise Exception(err_msg)
+        ##
         self._key = key
         self._iv = iv
+        self._entropy = entropy
         self._state = ''
         self._counter = 0
         self._buffer = ''
-        #
-        # If total entropy is less than MIN_IV_LEN, pad entropy
-        # from urandom to reach that number.
-        #
-        if (len(iv) + len(entropy)) < self.MIN_IV_LEN:
-            warn_msg = 'Not enough IV or entropy material. '
-            warn_msg += 'Padding entropy from /dev/urandom instead.'
-            warn(warn_msg)
-            n = self.MIN_IV_LEN - (len(iv) + len(entropy))
-            entropy += os.urandom(n)
-        self._entropy = entropy
+        ##
+        pass
 
     def inc(self):
-        'grow buffer with one block'
+        ''' grow buffer with one block
+        '''
         assert self._buffer == ''
-        #
+        ##
         entropy = self._entropy
         block_id = struct.pack('I', self._counter)
         iv = self._iv
-        #
+        ##
         block = hmac.new(self._key,
                          entropy + iv + block_id).digest()
         self._buffer += block
@@ -88,24 +86,24 @@ class ChumCipher(object):
 
 class ChumXOR(object):
 
-    def __init__(self, fa, fb):
+    def __init__(self, cipher, f):
         'read and xor data from file-like objects (fa, fb)'
-        self._fa = fa
-        self._fb = fb
+        self._cipher = cipher
+        self._f = f
 
     def xor(self, s1, s2):
         'xor two strings'
+        assert len(s1) == len(s2)
+        #
         x = [chr(ord(a) ^ ord(b)) for a, b in zip(s1, s2)]
         return ''.join(x)
 
     def read(self, n):
         'read and xor n bytes from fa and fb'
-        bufa = self._fa.read(n)
-        bufb = self._fb.read(n)
-        n = min(len(bufa), len(bufb))
-        bufa = bufa[:n]
-        bufb = bufb[:n]
-        return self.xor(bufa, bufb)
+        # broken
+        buf = self._f.read(n)
+        chum = self._cipher.read(n)
+        return self.xor(buf, chum)
 
 
 class ChumReader(ChumXOR):

@@ -10,7 +10,7 @@ import logging
 # import hashlib
 # import hmac
 # import struct
-# import os
+import os
 
 from chumcrypt import ChumCipher
 
@@ -33,12 +33,12 @@ def warn(*args, **kw):
 class Test(unittest.TestCase):
 
     def test_basics(self):
-        cs = ChumCipher()
+        cs = ChumCipher(iv='first_iv', entropy=os.urandom(20))
         print(repr(cs.read(29)))
         assert len(cs.read(41)) == 41
 
     def test_longer_irregular_read_lengths(self):
-        cs = ChumCipher()
+        cs = ChumCipher(iv='second_iv', entropy=os.urandom(20))
         n = 0
         while n < 2000:
             assert len(cs.read(n)) == n
