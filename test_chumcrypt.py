@@ -81,7 +81,7 @@ class Test_SecretBox(unittest.TestCase):
 
     def test_basics(self):
         box = SecretBox(key='topsecret')
-        b = box.encrypt('asd')
+        b = box.encrypt('asd', box.new_nonce())
         print len(b), repr(b)
 
 if __name__ == '__main__':

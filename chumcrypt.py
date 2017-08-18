@@ -3,6 +3,10 @@
 #
 # Copyright(c) 2017 - Krister Hedfors
 #
+# Notation:
+#   # A     =assertion section
+#   # V     =local variable initiation section
+#   # C     =Code section
 #
 import sys
 import logging
@@ -39,10 +43,10 @@ class ChumCipher(object):
     cryptographic hashing algorithms available in the Python 2
     standard library.
     '''
+    DIGESTMOD=hashlib.sha256
     MIN_IV_LEN = 16
 
-    def __init__(self, key='', nonce='', entropy='',
-                 hashfunc=hashlib.sha256):
+    def __init__(self, key='', nonce='', entropy='', digestmod=DIGESTMOD):
         # A
         if (len(nonce) + len(entropy)) < self.MIN_IV_LEN:
             err_msg = 'Not enough IV or entropy material: '
@@ -53,11 +57,15 @@ class ChumCipher(object):
         self._key = key
         self._nonce = nonce
         self._entropy = entropy
+        self._digestmod = digestmod
         self._state = ''
         self._counter = 0
         self._buffer = ''
         # C
         pass
+
+    def hmac(self, msg):
+        return hmac.new(self._key, msg, digestmod=self._digestmod).digest()
 
     def inc(self):
         ''' grow buffer with one block
@@ -69,9 +77,8 @@ class ChumCipher(object):
         block_id = struct.pack('I', self._counter)
         nonce = self._nonce
         # C
-        block = hmac.new(self._key,
-                         entropy + nonce + block_id).digest()
-        self._buffer += block
+        chum = self.hmac(entropy + nonce + block_id)
+        self._buffer += chum
         self._counter += 1
 
     def read_chum(self, n):
@@ -116,30 +123,43 @@ class SecretBox(object):
 
     NONCE_LEN = 16
 
-    def __init__(self, key, nonce=None, crypt_cls=ChumCrypt):
-        # A
-        if nonce is None:
-            nonce = self.new_nonce()
-        elif len(nonce) != self.NONCE_LEN:
-            msg = 'Invalid nonce length, len(nonce) != ' + str(self.NONCE_LEN)
-            raise Exception(msg)
+    def __init__(self, key, crypt_cls=ChumCrypt):
         # V
         self._key = key
-        self._nonce = nonce
         self._crypt_cls = crypt_cls
 
     def new_nonce(self):
         return os.urandom(self.NONCE_LEN)
 
-    def encrypt(self, msg, **kw):
+    def new_crypt(self, f, key, nonce, **kw):
+        return self._crypt_cls(f=f, key=key, nonce=nonce, **kw)
+
+    def seal(self, crypt, content):
+        sealed = (content + crypt.hmac(content))
+        return sealed
+
+    def unseal(self, crypt, sealed):
+        # A
+        content, sig = sealed[:-self.NONCE_LEN], \
+            sealed[-self.NONCE_LEN:]
+        assert len(sealed) == len(content) + len(sig)
+        assert crypt.seal(content) == sealed
+
+    def encrypt(self, msg, nonce):
+        # A
+        if not nonce:
+            nonce = self.new_nonce()
+        if len(nonce) != self.NONCE_LEN:
+            msg = 'Invalid nonce. Try using new_nonce().'
+            raise Exception(msg)
         # V
         size = len(msg)
         key = self._key
-        nonce = self._nonce
         # C
         f = StringIO.StringIO(msg)
-        crypt = self._crypt_cls(f=f, key=key, nonce=nonce, **kw)
+        crypt = self.new_crypt(f, key, nonce)
         ciphertext = crypt.read(size)
+        content = nonce + ciphertext + crypt.hmac(nonce + ciphertext)
         assert crypt.read(1) == ''
         return ciphertext
 
