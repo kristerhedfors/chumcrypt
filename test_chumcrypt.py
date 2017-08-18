@@ -11,8 +11,9 @@ import logging
 # import hmac
 # import struct
 import os
+import StringIO
 
-from chumcrypt import ChumCipher
+from chumcrypt import ChumCipher, ChumCrypt
 
 
 # logging.basicConfig(level=logging.ERROR)
@@ -30,18 +31,18 @@ def warn(*args, **kw):
     logger.warn('  ' + msg)
 
 
-class Test(unittest.TestCase):
+class Test_ChumCipher(unittest.TestCase):
 
     def test_basics(self):
-        cs = ChumCipher(iv='first_iv', entropy=os.urandom(20))
-        print(repr(cs.read(29)))
-        assert len(cs.read(41)) == 41
+        cs = ChumCipher(nonce='first_iv', entropy=os.urandom(20))
+        print(repr(cs.read_chum(29)))
+        assert len(cs.read_chum(41)) == 41
 
     def test_longer_irregular_read_lengths(self):
-        cs = ChumCipher(iv='second_iv', entropy=os.urandom(20))
+        cs = ChumCipher(nonce='second_iv', entropy=os.urandom(20))
         n = 0
         while n < 2000:
-            assert len(cs.read(n)) == n
+            assert len(cs.read_chum(n)) == n
             n += 11
 
     def verify_param(self, name):
@@ -56,6 +57,20 @@ class Test(unittest.TestCase):
     def test_verify_entropy(self):
         pass
 
+
+class Test_ChumCrypt(unittest.TestCase):
+
+    def test_basics(self):
+        f = StringIO.StringIO('perkele')
+        cc = ChumCrypt(f=f, nonce='first_iv', entropy=os.urandom(20))
+        print(repr(cc.read(29)))
+
+    def test_longer_irregular_read_lengths(self):
+        cc = ChumCipher(nonce='second_iv', entropy=os.urandom(20))
+        n = 0
+        while n < 2000:
+            assert len(cc.read_chum(n)) == n
+            n += 11
 
 if __name__ == '__main__':
     unittest.main()
