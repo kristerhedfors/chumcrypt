@@ -4,7 +4,6 @@
 # Copyright(c) 2017 - Krister Hedfors
 #
 #
-import unittest
 import sys
 import logging
 import hashlib
@@ -12,9 +11,12 @@ import hmac
 import struct
 import os
 
+__all__ = ['ChumCipher']
 
+
+# logging.basicConfig(level=logging.ERROR)
 logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(': ***ChumCipher*** :')
 
 
 def debug(*args, **kw):
@@ -22,16 +24,22 @@ def debug(*args, **kw):
     logger.debug('  ' + msg)
 
 
+def warn(*args, **kw):
+    msg = ' '.join(str(a) for a in args)
+    logger.warn('  ' + msg)
+
+
 def main(*args):
     pass
 
 
-def Entropy(object):
-    'shuffle and read data from proc'
-    pass
+class ChumCipher(object):
+    ''' ChumCipher provides a poor-man's stream cipher based upon
+    cryptographic hashing algorithms available in the Python 2
+    standard library.
+    '''
 
-
-class ChumStream(object):
+    MIN_IV_LEN = 8
 
     def __init__(self, key='', iv='', entropy='', hashfunc=hashlib.sha256):
         self._key = key
@@ -39,8 +47,16 @@ class ChumStream(object):
         self._state = ''
         self._counter = 0
         self._buffer = ''
-        if not entropy:
-            entropy = os.urandom(32)
+        #
+        # If total entropy is less than MIN_IV_LEN, pad entropy
+        # from urandom to reach that number.
+        #
+        if (len(iv) + len(entropy)) < self.MIN_IV_LEN:
+            warn_msg = 'Not enough IV or entropy material. '
+            warn_msg += 'Padding entropy from /dev/urandom instead.'
+            warn(warn_msg)
+            n = self.MIN_IV_LEN - (len(iv) + len(entropy))
+            entropy += os.urandom(n)
         self._entropy = entropy
 
     def inc(self):
@@ -70,40 +86,34 @@ class ChumStream(object):
         return res
 
 
-class Test(unittest.TestCase):
+class ChumXOR(object):
 
-    def test_basics(self):
-        cs = ChumStream()
-        print(repr(cs.read(29)))
-        assert len(cs.read(41)) == 41
+    def __init__(self, fa, fb):
+        'read and xor data from file-like objects (fa, fb)'
+        self._fa = fa
+        self._fb = fb
 
-    def test_longer_irregular_reads(self):
-        cs = ChumStream()
-        n = 0
-        while n < 2000:
-            assert len(cs.read(n)) == n
-            n += 11
+    def xor(self, s1, s2):
+        'xor two strings'
+        x = [chr(ord(a) ^ ord(b)) for a, b in zip(s1, s2)]
+        return ''.join(x)
 
-    def verify_param(self, name):
-        pass
+    def read(self, n):
+        'read and xor n bytes from fa and fb'
+        bufa = self._fa.read(n)
+        bufb = self._fb.read(n)
+        n = min(len(bufa), len(bufb))
+        bufa = bufa[:n]
+        bufb = bufb[:n]
+        return self.xor(bufa, bufb)
 
-    def test_verify_key(self):
-        pass
 
-    def test_verify_iv(self):
-        pass
+class ChumReader(ChumXOR):
 
-    def test_verify_entropy(self):
-        pass
+    def __init__(self, cipher=None, f=None):
+        self._cipher = cipher
+        self._f = f
 
 
 if __name__ == '__main__':
-    unittest.main()
-    sys.exit()
-    ##########
-    if '--test' in sys.argv:
-        sys.argv.remove('--test')
-        unittest.main()
-    else:
-        sys.exit(main(*sys.argv[1:]))
-
+    sys.exit(main(*sys.argv[1:]))
