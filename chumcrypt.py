@@ -29,24 +29,59 @@ import random
 __all__ = ['ChumCipher']
 
 
-def objentropy(o):
-    from operator import attrgetter as ag
-    #                        .--.
-    #                       (._=.\
-    #                       `- - j)
-    #                        \- /
-    #                       ._| |__
-    #                      (/      \
-    data = map(str, ag(*dir(o))(o))
-    #                   .__)|  " /\, \
-    #                  //, _/ , (_/ /
-    #                 /"        / ('
-    #                 \  \___\/ \\`
-    #                  \  |   \|  |^,
-    #                   \ |    \  |)
-    #                    ) \    ._/
-    #                   /  )
-    return hashlib.sha256(''.join(data)).digest()
+class EntropyMixin(object):
+    ''' Class for collecting entropy from within python environment in a
+    portable manner.
+    '''
+
+    _entropy_pool = None
+
+    @classmethod
+    def _entropy_from_obj(cls, o):
+        from operator import attrgetter as ag
+        #                        .--.
+        #                       (._=.\
+        #                       `- - j)
+        #                        \- /
+        #                       ._| |__
+        #                      (/      \
+        data = map(str, ag(*dir(o))(o))
+        #                   .__)|  " /\, \
+        #                  //, _/ , (_/ /
+        #                 /"        / ('
+        #                 \  \___\/ \\`
+        #                  \  |   \|  |^,
+        #                   \ |    \  |)
+        #                    ) \    ._/
+        #                   /  )
+        return hashlib.sha256(''.join(data)).digest()
+
+    @classmethod
+    def _entropy_gather(cls, extra=''):
+        # V
+        rand = random.SystemRandom()
+        h = hashlib.sha512()
+        # C
+        objlist = ["?"] + range(64) + globals().values() + locals().values()
+        rand.shuffle(objlist)
+        map(h.update, [cls._entropy_from_obj(o) for o in objlist])
+        h.update(os.urandom(64))
+        h.update(str(time.time()))
+        h.update(extra)
+        return h.digest()
+
+    @classmethod
+    def get_entropy(cls):
+        ''' Return 64 bytes of fresh entropy. May be OK to use as key directly.
+        '''
+        if not cls._entropy_pool:
+            cls._entropy_pool = cls._entropy_gather()
+        e0 = hashlib.sha512(cls._entropy_pool).digest()
+        e1 = hashlib.sha512(e0).digest()
+        e2 = hashlib.sha512(e1).digest()
+        h = hmac.new(e0, e1, hashlib.sha512)
+        cls._entropy_pool = h.digest()
+        return e2
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -73,7 +108,9 @@ class ChumCipher(object):
     standard library.
     '''
     DIGESTMOD = hashlib.sha256
+    HASH_NAME = DIGESTMOD().name
     KEY_SIZE = DIGESTMOD().digestsize
+    KEYGEN_ITERATIONS = 10**4
     MIN_IV_LEN = 16
 
     def __init__(self, key='', nonce='', entropy='', digestmod=DIGESTMOD):
@@ -92,8 +129,6 @@ class ChumCipher(object):
         self._state = ''
         self._counter = 0
         self._buffer = ''
-        # C
-        pass
 
     def hmac(self, msg):
         return hmac.new(self._key, msg, digestmod=self._digestmod).digest()
@@ -129,11 +164,19 @@ class ChumCipher(object):
         return res
 
 
-class _ChumCrypt(ChumCipher):
+class ChumCrypt(ChumCipher, EntropyMixin):
+
+    @classmethod
+    def new_key(cls):
+        key = cls.get_entropy()
+        salt = cls.get_entropy()
+        key = hashlib.pbkdf2_hmac(cls.HASH_NAME, key, salt,
+                                  cls.KEYGEN_ITERATIONS)
+        return key
 
     def __init__(self, f, **kw):
         self._f = f
-        super(_ChumCrypt, self).__init__(**kw)
+        super(ChumCrypt, self).__init__(**kw)
 
     def xor(self, s1, s2):
         ''' xor two strings
@@ -148,42 +191,6 @@ class _ChumCrypt(ChumCipher):
         buf = self._f.read(n)
         chum = self.read_chum(len(buf))
         return self.xor(buf, chum)
-
-
-class EntropyMixin(object):
-
-    _entropy_pool = None
-
-    @classmethod
-    def _entropy_gather(self, extra=''):
-        # V
-        rand = random.SystemRandom()
-        h = hashlib.sha512()
-        # C
-        objlist = range(64) + globals().values() + locals().values()
-        rand.shuffle(objlist)
-        map(h.update, [objentropy(o) for o in objlist])
-        h.update(os.urandom(64))
-        h.update(str(time.time()))
-        h.update(extra)
-        return h.digest()
-
-    @classmethod
-    def get_entropy(cls):
-        ''' Return 64 bytes of fresh entropy. May be OK to use as key directly.
-        '''
-        if not cls._entropy_pool:
-            cls._entropy_pool = cls._entropy_gather()
-        e = hashlib.sha512(cls._entropy_pool).digest()
-        cls._entropy_pool = cls._entropy_gather(e)
-        return e
-
-
-class ChumCrypt(_ChumCrypt, EntropyMixin):
-
-    @classmethod
-    def new_key(cls):
-        return cls.get_entropy()[:cls.KEY_SIZE]
 
 
 class SecretBox(object):
@@ -232,9 +239,7 @@ class SecretBox(object):
         ciphertext = crypt.read(size)
         content = nonce + ciphertext + crypt.hmac(nonce + ciphertext)
         assert crypt.read(1) == ''
-        return ciphertext
-
-
+        return content
 
 
 if __name__ == '__main__':
