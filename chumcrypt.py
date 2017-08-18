@@ -76,12 +76,10 @@ class EntropyMixin(object):
         '''
         if not cls._entropy_pool:
             cls._entropy_pool = cls._entropy_gather()
-        e0 = hashlib.sha512(cls._entropy_pool).digest()
-        e1 = hashlib.sha512(e0).digest()
-        e2 = hashlib.sha512(e1).digest()
-        h = hmac.new(e0, e1, hashlib.sha512)
+        e = hashlib.sha512(cls._entropy_pool).digest()
+        h = hmac.new(e, cls._entropy_pool, hashlib.sha512)
         cls._entropy_pool = h.digest()
-        return e2
+        return e
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -207,7 +205,7 @@ class SecretBox(object):
         self._crypt_cls = crypt_cls
 
     def new_nonce(self):
-        return os.urandom(self.NONCE_LEN)
+        return ChumCrypt.get_entropy()[:self.NONCE_LEN]
 
     def new_crypt(self, f, key, nonce, **kw):
         return self._crypt_cls(f=f, key=key, nonce=nonce, **kw)
