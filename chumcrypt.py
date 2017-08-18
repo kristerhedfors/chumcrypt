@@ -46,7 +46,8 @@ class ChumCipher(object):
         # A
         if (len(nonce) + len(entropy)) < self.MIN_IV_LEN:
             err_msg = 'Not enough IV or entropy material: '
-            err_msg += 'len(nonce) + len(entropy) < {0}'.format(self.MIN_IV_LEN)
+            err_msg += 'len(nonce) + len(entropy) < {0}'.format(
+                self.MIN_IV_LEN)
             raise Exception(err_msg)
         # V
         self._key = key
