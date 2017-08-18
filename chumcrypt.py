@@ -26,6 +26,11 @@ def main(*args):
     pass
 
 
+def Entropy(object):
+    'shuffle and read data from proc'
+    pass
+
+
 class ChumStream(object):
 
     def __init__(self, key='', iv='', entropy='', hashfunc=hashlib.sha256):
