@@ -3,6 +3,14 @@
 #
 # Copyright(c) 2017 - Krister Hedfors
 #
+# TODO
+# * key expansion
+# * split into hmac and crypt key
+# * native random
+# * clarify entropy, make it mean entropy as a random source
+# * (tool able to validate signatures of its components over https)
+#
+#
 # Notation:
 #   # A     =assertion section
 #   # V     =local variable initiation section
@@ -14,12 +22,33 @@ import hashlib
 import hmac
 import struct
 import os
+import time
 import StringIO
+import random
 
 __all__ = ['ChumCipher']
 
 
-# logging.basicConfig(level=logging.ERROR)
+def objentropy(o):
+    from operator import attrgetter as ag
+    #                        .--.
+    #                       (._=.\
+    #                       `- - j)
+    #                        \- /
+    #                       ._| |__
+    #                      (/      \
+    data = map(str, ag(*dir(o))(o))
+    #                   .__)|  " /\, \
+    #                  //, _/ , (_/ /
+    #                 /"        / ('
+    #                 \  \___\/ \\`
+    #                  \  |   \|  |^,
+    #                   \ |    \  |)
+    #                    ) \    ._/
+    #                   /  )
+    return hashlib.sha256(''.join(data)).digest()
+
+
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(': ***ChumCipher*** :')
 
@@ -43,11 +72,13 @@ class ChumCipher(object):
     cryptographic hashing algorithms available in the Python 2
     standard library.
     '''
-    DIGESTMOD=hashlib.sha256
+    DIGESTMOD = hashlib.sha256
+    KEY_SIZE = DIGESTMOD().digestsize
     MIN_IV_LEN = 16
 
     def __init__(self, key='', nonce='', entropy='', digestmod=DIGESTMOD):
         # A
+        assert len(key) == self.KEY_SIZE
         if (len(nonce) + len(entropy)) < self.MIN_IV_LEN:
             err_msg = 'Not enough IV or entropy material: '
             err_msg += 'len(nonce) + len(entropy) < {0}'.format(
@@ -90,7 +121,7 @@ class ChumCipher(object):
         while n > 0:
             batch_size = min(n, 16)
             curr, self._buffer = self._buffer[:batch_size], \
-                                 self._buffer[batch_size:]
+                self._buffer[batch_size:]
             if self._buffer == '' or len(curr) < batch_size:
                 self.inc()
             res += curr
@@ -98,11 +129,11 @@ class ChumCipher(object):
         return res
 
 
-class ChumCrypt(ChumCipher):
+class _ChumCrypt(ChumCipher):
 
     def __init__(self, f, **kw):
         self._f = f
-        super(ChumCrypt, self).__init__(**kw)
+        super(_ChumCrypt, self).__init__(**kw)
 
     def xor(self, s1, s2):
         ''' xor two strings
@@ -119,7 +150,47 @@ class ChumCrypt(ChumCipher):
         return self.xor(buf, chum)
 
 
+class EntropyMixin(object):
+
+    _entropy_pool = None
+
+    @classmethod
+    def _entropy_gather(self, extra=''):
+        # V
+        rand = random.SystemRandom()
+        h = hashlib.sha512()
+        # C
+        objlist = range(64) + globals().values() + locals().values()
+        rand.shuffle(objlist)
+        map(h.update, [objentropy(o) for o in objlist])
+        h.update(os.urandom(64))
+        h.update(str(time.time()))
+        h.update(extra)
+        return h.digest()
+
+    @classmethod
+    def get_entropy(cls):
+        ''' Return 64 bytes of fresh entropy. May be OK to use as key directly.
+        '''
+        if not cls._entropy_pool:
+            cls._entropy_pool = cls._entropy_gather()
+        e = hashlib.sha512(cls._entropy_pool).digest()
+        cls._entropy_pool = cls._entropy_gather(e)
+        return e
+
+
+class ChumCrypt(_ChumCrypt, EntropyMixin):
+
+    @classmethod
+    def new_key(cls):
+        return cls.get_entropy()[:cls.KEY_SIZE]
+
+
 class SecretBox(object):
+
+    @classmethod
+    def new_key(cls):
+        return ChumCrypt.new_key()
 
     NONCE_LEN = 16
 

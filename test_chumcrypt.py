@@ -36,14 +36,16 @@ def warn(*args, **kw):
 class Test_ChumCipher(unittest.TestCase):
 
     def test_basics(self):
-        cs = ChumCipher(nonce='first_iv', entropy=os.urandom(20))
+        key = os.urandom(32)
+        cs = ChumCipher(key=key, nonce='first_iv', entropy=os.urandom(20))
         for i in xrange(100):
             assert len(cs.read_chum(i)) == i
         print(repr(cs.read_chum(29)))
         assert len(cs.read_chum(41)) == 41
 
     def test_longer_irregular_read_lengths(self):
-        cs = ChumCipher(nonce='second_iv', entropy=os.urandom(20))
+        key = 'a' * 32
+        cs = ChumCipher(key=key, nonce='second_iv', entropy=os.urandom(20))
         n = 0
         while n < 2000:
             assert len(cs.read_chum(n)) == n
@@ -55,32 +57,31 @@ class Test_ChumCipher(unittest.TestCase):
     def test_verify_key(self):
         pass
 
-    def test_verify_iv(self):
-        pass
-
-    def test_verify_entropy(self):
-        pass
-
 
 class Test_ChumCrypt(unittest.TestCase):
 
     def test_basics(self):
         f = StringIO.StringIO('perkele')
-        cc = ChumCrypt(f=f, nonce='first_iv', entropy=os.urandom(20))
+        key = ChumCrypt.new_key()
+        cc = ChumCrypt(f=f, key=key, nonce='first_iv', entropy=os.urandom(20))
         print(repr(cc.read(29)))
 
     def test_longer_irregular_read_lengths(self):
-        cc = ChumCipher(nonce='second_iv', entropy=os.urandom(20))
+        key = 'a' * 32
+        cc = ChumCipher(key=key, nonce='second_iv', entropy=os.urandom(20))
         n = 0
         while n < 2000:
             assert len(cc.read_chum(n)) == n
             n += 11
 
+    #def test_crypt_decrypt(self):
+    #    cca = ChumCrypt(StringIO.StringIO('gubbe' * 10)
+
 
 class Test_SecretBox(unittest.TestCase):
 
     def test_basics(self):
-        box = SecretBox(key='topsecret')
+        box = SecretBox(key=SecretBox.new_key())
         b = box.encrypt('asd', box.new_nonce())
         print len(b), repr(b)
 
