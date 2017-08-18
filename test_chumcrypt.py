@@ -13,7 +13,9 @@ import logging
 import os
 import StringIO
 
-from chumcrypt import ChumCipher, ChumCrypt
+from chumcrypt import ChumCipher
+from chumcrypt import ChumCrypt
+from chumcrypt import SecretBox
 
 
 # logging.basicConfig(level=logging.ERROR)
@@ -73,6 +75,14 @@ class Test_ChumCrypt(unittest.TestCase):
         while n < 2000:
             assert len(cc.read_chum(n)) == n
             n += 11
+
+
+class Test_SecretBox(unittest.TestCase):
+
+    def test_basics(self):
+        box = SecretBox(key='topsecret')
+        b = box.encrypt('asd')
+        print len(b), repr(b)
 
 if __name__ == '__main__':
     unittest.main()

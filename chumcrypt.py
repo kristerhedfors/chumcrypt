@@ -10,6 +10,7 @@ import hashlib
 import hmac
 import struct
 import os
+import StringIO
 
 __all__ = ['ChumCipher']
 
@@ -38,7 +39,6 @@ class ChumCipher(object):
     cryptographic hashing algorithms available in the Python 2
     standard library.
     '''
-
     MIN_IV_LEN = 16
 
     def __init__(self, key='', nonce='', entropy='',
@@ -116,18 +116,34 @@ class SecretBox(object):
 
     NONCE_LEN = 16
 
-    def __init__(self, key, nonce=None, cipher_cls=ChumCipher):
+    def __init__(self, key, nonce=None, crypt_cls=ChumCrypt):
         # A
         if nonce is None:
-            nonce = os.urandom(self.NONCE_LEN)
+            nonce = self.new_nonce()
         elif len(nonce) != self.NONCE_LEN:
             msg = 'Invalid nonce length, len(nonce) != ' + str(self.NONCE_LEN)
             raise Exception(msg)
         # V
-        self._cipher = cipher_cls(key=key, nonce=nonce)
+        self._key = key
+        self._nonce = nonce
+        self._crypt_cls = crypt_cls
+
+    def new_nonce(self):
+        return os.urandom(self.NONCE_LEN)
+
+    def encrypt(self, msg, **kw):
+        # V
+        size = len(msg)
+        key = self._key
+        nonce = self._nonce
         # C
-        self._cipher = cipher
-        self._f = f
+        f = StringIO.StringIO(msg)
+        crypt = self._crypt_cls(f=f, key=key, nonce=nonce, **kw)
+        ciphertext = crypt.read(size)
+        assert crypt.read(1) == ''
+        return ciphertext
+
+
 
 
 if __name__ == '__main__':
