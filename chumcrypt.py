@@ -4,10 +4,10 @@
 # Copyright(c) 2017 - Krister Hedfors
 #
 # TODO
-# * key expansion
+# + key expansion
 # * split into hmac and crypt key
-# * native random
-# * clarify entropy, make it mean entropy as a random source
+# + native entropy
+# + clarify entropy, make it mean entropy as a random source
 # * (tool able to validate signatures of its components over https)
 #
 #
@@ -54,7 +54,7 @@ class EntropyMixin(object):
         #                   \ |    \  |)
         #                    ) \    ._/
         #                   /  )
-        return hashlib.sha256(''.join(data)).digest()
+        return hashlib.sha512(''.join(data)).digest()
 
     @classmethod
     def _entropy_gather(cls, extra=''):
