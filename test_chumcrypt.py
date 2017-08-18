@@ -35,6 +35,8 @@ class Test_ChumCipher(unittest.TestCase):
 
     def test_basics(self):
         cs = ChumCipher(nonce='first_iv', entropy=os.urandom(20))
+        for i in xrange(100):
+            assert len(cs.read_chum(i)) == i
         print(repr(cs.read_chum(29)))
         assert len(cs.read_chum(41)) == 41
 

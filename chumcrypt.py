@@ -94,27 +94,21 @@ class ChumCipher(object):
 class ChumCrypt(ChumCipher):
 
     def __init__(self, f, **kw):
-        # V
         self._f = f
-        # C
         super(ChumCrypt, self).__init__(**kw)
 
     def xor(self, s1, s2):
         ''' xor two strings
         '''
-        # A
         assert len(s1) == len(s2)
-        # C
         x = [chr(ord(a) ^ ord(b)) for a, b in zip(s1, s2)]
         return ''.join(x)
 
     def read(self, n):
         ''' read and xor n bytes from fa and fb
         '''
-        # V
         buf = self._f.read(n)
         chum = self.read_chum(len(buf))
-        # C
         return self.xor(buf, chum)
 
 
