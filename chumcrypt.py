@@ -128,10 +128,10 @@ class ChumCipher(object):
         self._counter = 0
         self._buffer = ''
 
-    def hmac(self, msg):
+    def _hmac(self, msg):
         return hmac.new(self._key, msg, digestmod=self._digestmod).digest()
 
-    def inc(self):
+    def _inc(self):
         ''' grow buffer with one block
         '''
         # A
@@ -141,7 +141,7 @@ class ChumCipher(object):
         block_id = struct.pack('I', self._counter)
         nonce = self._nonce
         # C
-        chum = self.hmac(entropy + nonce + block_id)
+        chum = self._hmac(entropy + nonce + block_id)
         self._buffer += chum
         self._counter += 1
 
@@ -156,7 +156,7 @@ class ChumCipher(object):
             curr, self._buffer = self._buffer[:batch_size], \
                 self._buffer[batch_size:]
             if self._buffer == '' or len(curr) < batch_size:
-                self.inc()
+                self._inc()
             res += curr
             n -= len(curr)
         return res
@@ -176,7 +176,7 @@ class ChumCrypt(ChumCipher, EntropyMixin):
         self._f = f
         super(ChumCrypt, self).__init__(**kw)
 
-    def xor(self, s1, s2):
+    def _xor(self, s1, s2):
         ''' xor two strings
         '''
         assert len(s1) == len(s2)
@@ -188,7 +188,7 @@ class ChumCrypt(ChumCipher, EntropyMixin):
         '''
         buf = self._f.read(n)
         chum = self.read_chum(len(buf))
-        return self.xor(buf, chum)
+        return self._xor(buf, chum)
 
 
 class SecretBox(object):
@@ -204,14 +204,14 @@ class SecretBox(object):
         self._key = key
         self._crypt_cls = crypt_cls
 
+    def _new_crypt(self, f, key, nonce, **kw):
+        return self._crypt_cls(f=f, key=key, nonce=nonce, **kw)
+
     def new_nonce(self):
         return ChumCrypt.get_entropy()[:self.NONCE_LEN]
 
-    def new_crypt(self, f, key, nonce, **kw):
-        return self._crypt_cls(f=f, key=key, nonce=nonce, **kw)
-
     def seal(self, crypt, content):
-        sealed = (content + crypt.hmac(content))
+        sealed = (content + crypt._hmac(content))
         return sealed
 
     def unseal(self, crypt, sealed):
@@ -233,9 +233,9 @@ class SecretBox(object):
         key = self._key
         # C
         f = StringIO.StringIO(msg)
-        crypt = self.new_crypt(f, key, nonce)
+        crypt = self._new_crypt(f, key, nonce)
         ciphertext = crypt.read(size)
-        content = nonce + ciphertext + crypt.hmac(nonce + ciphertext)
+        content = nonce + ciphertext + crypt._hmac(nonce + ciphertext)
         assert crypt.read(1) == ''
         return content
 
