@@ -5,7 +5,6 @@
 #
 #
 import unittest
-import sys
 import logging
 # import hashlib
 # import hmac
@@ -74,16 +73,24 @@ class Test_ChumCrypt(unittest.TestCase):
             assert len(cc.read_chum(n)) == n
             n += 11
 
-    #def test_crypt_decrypt(self):
-    #    cca = ChumCrypt(StringIO.StringIO('gubbe' * 10)
-
 
 class Test_SecretBox(unittest.TestCase):
 
     def test_basics(self):
-        box = SecretBox(key=SecretBox.new_key())
-        b = box.encrypt('asd', box.new_nonce())
-        print len(b), repr(b)
+        key = 'K' * 32 # SecretBox.new_key()
+        box = SecretBox(key)
+        nonce = box.new_nonce()
+        package = box.encrypt('P' * 32, 'N' * 16)
+        pt = box.decrypt(package)
+        assert pt == 'P' * 32
+        return
+        for i in xrange(100):
+            plaintext = os.urandom(i)
+            nonce = 'N' * 16
+            package = box.encrypt(plaintext, nonce)
+            debug('PACKAGELEN', len(package))
+            assert plaintext == box.decrypt(package)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -39,21 +39,21 @@ class EntropyMixin(object):
     @classmethod
     def _entropy_from_obj(cls, o):
         from operator import attrgetter as ag
-        #                        .--.
-        #                       (._=.\
-        #                       `- - j)
-        #                        \- /
-        #                       ._| |__
-        #                      (/      \
-        data = map(str, ag(*dir(o))(o))
-        #                   .__)|  " /\, \
-        #                  //, _/ , (_/ /
-        #                 /"        / ('
-        #                 \  \___\/ \\`
-        #                  \  |   \|  |^,
-        #                   \ |    \  |)
-        #                    ) \    ._/
-        #                   /  )
+            #                          .--.
+            #                         (._=.\
+            #                         `- - j)
+            #                          \- /
+            #                         ._| |__
+            #                        (/      \
+            data = map(object ag(*dir(o))(o))
+            #                     .__)|  " /\, \
+            #                    //, _/ , (_/ /
+            #                   /"        / ('
+            #                   \  \___\/ \\`
+            #                    \  |   \|  |^,
+            #                     \ |    \  |)
+            #                      ) \    ._/
+            #                     /  )
         return hashlib.sha512(''.join(data)).digest()
 
     @classmethod
@@ -201,56 +201,61 @@ class SecretBox(object):
     NONCE_LEN = 16
 
     def __init__(self, key, crypt_cls=ChumCrypt):
-        self._key = key
+        self._hmac_key = hmac.new(key, "hmac", crypt_cls.DIGESTMOD).digest()
+        self._crypt_key = hmac.new(key, "crypt", crypt_cls.DIGESTMOD).digest()
         self._crypt_cls = crypt_cls
 
-    def _new_crypt(self, f, key, nonce, **kw):
-        return self._crypt_cls(f=f, key=key, nonce=nonce, **kw)
+    def _hmac(self, msg):
+        return hmac.new(self._hmac_key, msg,
+                        self._crypt_cls.DIGESTMOD).digest()
+
+    def _new_crypt(self, f, nonce, **kw):
+        return self._crypt_cls(f=f, key=self._crypt_key, nonce=nonce, **kw)
 
     def new_nonce(self):
-        return ChumCrypt.get_entropy()[:self._crypt_cls.NONCE_LEN]
+        return ChumCrypt.get_entropy()[:self.NONCE_LEN]
 
-    def seal(self, crypt, content):
-        sealed = (content + crypt._hmac(content))
+    def seal(self, content):
+        debug('..SEAL ', len(content), repr(content))
+        sealed = (content + self._hmac(content))
         return sealed
 
-    def unseal(self, crypt, sealed):
+    def unseal(self, package):
         # A
-        assert len(sealed) >= crypt.NONCE_LEN
+        assert len(package) >= self.NONCE_LEN
         # C
-        content, sig = sealed[:-crypt.NONCE_LEN], \
-            sealed[-crypt.NONCE_LEN:]
-        assert crypt._hmac(content) == sig
+        content, sig = package[:-self.NONCE_LEN], \
+            package[-self.NONCE_LEN:]
+        assert len(sig) <= self.NONCE_LEN
+        debug('UNSEAL ', len(content), repr(content))
+        assert self._hmac(content) == sig
         return content
 
     def encrypt(self, msg, nonce):
         # A
         if not nonce:
             nonce = self.new_nonce()
-        if len(nonce) != self._crypt_cls.NONCE_LEN:
+        if len(nonce) != self.NONCE_LEN:
             msg = 'Invalid nonce. Try using new_nonce().'
             raise Exception(msg)
         # V
-        size = len(msg)
-        key = self._key
         # C
         f = StringIO.StringIO(msg)
-        crypt = self._new_crypt(f, key, nonce)
-        ciphertext = crypt.read(size)
-        box = self.seal(nonce + ciphertext)
+        crypt = self._new_crypt(f, nonce)
+        ciphertext = crypt.read(len(msg))
+        package = self.seal(nonce + ciphertext)
         assert crypt.read(1) == ''
-        return box
+        return package
 
-    def decrypt(self, box):
+    def decrypt(self, package):
         # V
-        content = self.unseal(box)
-        nonce_len = self._crypt_cls.NONCE_LEN
+        content = self.unseal(package)
+        nonce_len = self.NONCE_LEN
         assert len(content) >= nonce_len
         nonce = content[:nonce_len]
         ciphertext = content[nonce_len:]
         f = StringIO.StringIO(ciphertext)
-        key = self._key
-        crypt = self._new_crypt(f, key, nonce)
+        crypt = self._new_crypt(f, nonce)
         return crypt.read(len(ciphertext))
 
 
