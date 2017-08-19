@@ -107,7 +107,8 @@ class ChumCipher(object):
     '''
     DIGESTMOD = hashlib.sha256
     HASH_NAME = DIGESTMOD().name
-    KEY_SIZE = DIGESTMOD().digestsize
+    KEY_SIZE = DIGESTMOD().digest_size
+    DIGEST_SIZE = DIGESTMOD().digest_size
     KEYGEN_ITERATIONS = 10**4
     MIN_IV_LEN = 16
 
@@ -200,7 +201,6 @@ class SecretBox(object):
     NONCE_LEN = 16
 
     def __init__(self, key, crypt_cls=ChumCrypt):
-        # V
         self._key = key
         self._crypt_cls = crypt_cls
 
@@ -208,7 +208,7 @@ class SecretBox(object):
         return self._crypt_cls(f=f, key=key, nonce=nonce, **kw)
 
     def new_nonce(self):
-        return ChumCrypt.get_entropy()[:self.NONCE_LEN]
+        return ChumCrypt.get_entropy()[:self._crypt_cls.NONCE_LEN]
 
     def seal(self, crypt, content):
         sealed = (content + crypt._hmac(content))
@@ -216,16 +216,18 @@ class SecretBox(object):
 
     def unseal(self, crypt, sealed):
         # A
-        content, sig = sealed[:-self.NONCE_LEN], \
-            sealed[-self.NONCE_LEN:]
-        assert len(sealed) == len(content) + len(sig)
-        assert crypt.seal(content) == sealed
+        assert len(sealed) >= crypt.NONCE_LEN
+        # C
+        content, sig = sealed[:-crypt.NONCE_LEN], \
+            sealed[-crypt.NONCE_LEN:]
+        assert crypt._hmac(content) == sig
+        return content
 
     def encrypt(self, msg, nonce):
         # A
         if not nonce:
             nonce = self.new_nonce()
-        if len(nonce) != self.NONCE_LEN:
+        if len(nonce) != self._crypt_cls.NONCE_LEN:
             msg = 'Invalid nonce. Try using new_nonce().'
             raise Exception(msg)
         # V
@@ -235,9 +237,21 @@ class SecretBox(object):
         f = StringIO.StringIO(msg)
         crypt = self._new_crypt(f, key, nonce)
         ciphertext = crypt.read(size)
-        content = nonce + ciphertext + crypt._hmac(nonce + ciphertext)
+        box = self.seal(nonce + ciphertext)
         assert crypt.read(1) == ''
-        return content
+        return box
+
+    def decrypt(self, box):
+        # V
+        content = self.unseal(box)
+        nonce_len = self._crypt_cls.NONCE_LEN
+        assert len(content) >= nonce_len
+        nonce = content[:nonce_len]
+        ciphertext = content[nonce_len:]
+        f = StringIO.StringIO(ciphertext)
+        key = self._key
+        crypt = self._new_crypt(f, key, nonce)
+        return crypt.read(len(ciphertext))
 
 
 if __name__ == '__main__':
