@@ -39,21 +39,21 @@ class EntropyMixin(object):
     @classmethod
     def _entropy_from_obj(cls, o):
         from operator import attrgetter as ag
-            #                          .--.
-            #                         (._=.\
-            #                         `- - j)
-            #                          \- /
-            #                         ._| |__
-            #                        (/      \
-            data = map(object ag(*dir(o))(o))
-            #                     .__)|  " /\, \
-            #                    //, _/ , (_/ /
-            #                   /"        / ('
-            #                   \  \___\/ \\`
-            #                    \  |   \|  |^,
-            #                     \ |    \  |)
-            #                      ) \    ._/
-            #                     /  )
+        #                          .--.
+        #                         (._=.\
+        #                         `- - j)
+        #                          \- /
+        #                         ._| |__
+        #                        (/      \
+        data = map(repr, ag(*dir(o))(o))
+        #                     .__)|  " /\, \
+        #                    //, _/ , (_/ /
+        #                   /"        / ('
+        #                   \  \___\/ \\`
+        #                    \  |   \|  |^,
+        #                     \ |    \  |)
+        #                      ) \    ._/
+        #                     /  )
         return hashlib.sha512(''.join(data)).digest()
 
     @classmethod
