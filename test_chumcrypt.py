@@ -25,52 +25,7 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(': ***ChumCipher*** :')
 
 
-def debug(*args, **kw):
-    msg = ' '.join(str(a) for a in args)
-    logger.debug('  ' + msg)
-
-
-def warn(*args, **kw):
-    msg = ' '.join(str(a) for a in args)
-    logger.warn('  ' + msg)
-
-
-class Test_ChumCipher(unittest.TestCase):
-
-    def test_longer_irregular_read_lengths(self):
-        key = 'a' * 32
-        nonce = 'n' * 16
-        cc = ChumCipher(key, nonce)
-        n = 0
-        while n < 2**12:
-            assert len(cc._read_chum(n)) == n
-            n += 31337
-
-
 class Test_SecretBox(unittest.TestCase):
-
-    def test_basics(self):
-        key = utils.gen_key()
-        box = SecretBox(key)
-        nonce = utils.random(16)
-        package = box.encrypt('P' * 32, 'N' * 16)
-        pt = box.decrypt(package)
-        assert pt == 'P' * 32
-        for i in xrange(100):
-            plaintext = utils.random(i)
-            nonce = 'N' * 16
-            package = box.encrypt(plaintext, nonce)
-            assert plaintext == box.decrypt(package)
-
-    def test_seal(self):
-        key = 'K' * 32
-        box = SecretBox(key)
-        msg = 'hello chum'
-        smsg = box.seal(msg)
-        assert box.unseal(smsg) == msg
-
-
-class Test_SecretBox2(unittest.TestCase):
 
     def _inc_one_random_byte(self, s):
         a = array.array('B', s)
@@ -100,7 +55,7 @@ class Test_SecretBox2(unittest.TestCase):
         Send one message through both chains and finally validate integrity.
         Perform XOR-schism...
         '''
-        msg = 'Welcome! how did you get here?'
+        msg = 'Welcome! how did you find your way in here?'
         keys = [utils.random(32) for _ in xrange(100)]
         m1 = self._get_multilayer_cipher(keys, msg)
         ciphertext = m1.read(len(msg))
@@ -157,6 +112,42 @@ class Test_SecretBox2(unittest.TestCase):
         n = 20
         keygen = imap(lambda i: sha256(str(i)).digest(), xrange(n))
         self._recursive_boxes(keygen, n)
+
+
+class Test_ChumCipher(unittest.TestCase):
+
+    def test_longer_irregular_read_lengths(self):
+        key = 'a' * 32
+        nonce = 'n' * 16
+        cc = ChumCipher(key, nonce)
+        n = 0
+        while n < 2**12:
+            assert len(cc._read_chum(n)) == n
+            n += 31337
+
+
+class Test_SecretBox_Naive(unittest.TestCase):
+
+    def test_basics(self):
+        key = utils.gen_key()
+        box = SecretBox(key)
+        nonce = utils.random(16)
+        package = box.encrypt('P' * 32, 'N' * 16)
+        pt = box.decrypt(package)
+        assert pt == 'P' * 32
+        for i in xrange(100):
+            plaintext = utils.random(i)
+            nonce = 'N' * 16
+            package = box.encrypt(plaintext, nonce)
+            assert plaintext == box.decrypt(package)
+
+    def test_seal(self):
+        key = 'K' * 32
+        box = SecretBox(key)
+        msg = 'hello chum'
+        smsg = box.seal(msg)
+        assert box.unseal(smsg) == msg
+
 
 if __name__ == '__main__':
     unittest.main()
