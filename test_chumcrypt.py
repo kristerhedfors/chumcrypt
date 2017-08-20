@@ -15,6 +15,7 @@ import StringIO
 from chumcrypt import ChumCipher
 from chumcrypt import ChumCrypt
 from chumcrypt import SecretBox
+from chumcrypt import utils
 
 
 # logging.basicConfig(level=logging.ERROR)
@@ -64,13 +65,15 @@ class Test_ChumCrypt(unittest.TestCase):
     def test_basics(self):
         f = StringIO.StringIO('perkele')
         key = ChumCrypt.new_key()
+        print key
+        assert len(key) == 32
         nonce = os.urandom(16)
         cc = ChumCrypt(f=f, key=key, nonce=nonce)
         print(repr(cc.read(29)))
 
     def test_longer_irregular_read_lengths(self):
         key = 'a' * 32
-        nonce = 'n' * 32
+        nonce = 'n' * 16
         cc = ChumCipher(key=key, nonce=nonce)
         n = 0
         while n < 2000:
@@ -83,7 +86,7 @@ class Test_SecretBox(unittest.TestCase):
     def test_basics(self):
         key = SecretBox.new_key()
         box = SecretBox(key)
-        nonce = box.new_nonce()
+        nonce = utils.random(16)
         package = box.encrypt('P' * 32, 'N' * 16)
         pt = box.decrypt(package)
         assert pt == 'P' * 32
