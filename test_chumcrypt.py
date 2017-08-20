@@ -41,7 +41,7 @@ class Test_ChumCipher(unittest.TestCase):
         assert len(key) == 32
         nonce = utils.random(16)
         cc = ChumCipher(key, nonce, f)
-        print(repr(cc.read(29)))
+        # print(repr(cc.read(29)))
 
     def test_longer_irregular_read_lengths(self):
         key = 'a' * 32
@@ -85,7 +85,6 @@ class Test_SecretBox2(unittest.TestCase):
     def _recursive_boxes(self, keygen, n):
         boxes = []
         keys = [k for k in keygen]
-        print keys
         packages = []
         p = None
         #
