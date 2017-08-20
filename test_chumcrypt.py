@@ -98,7 +98,7 @@ class Test_SecretBox2(unittest.TestCase):
         Create a list of keys and two equal multi-layered ciphers from these
         keys.
         Send one message through both chains and finally validate integrity.
-        Perform XOR-schism.
+        Perform XOR-schism...
         '''
         msg = 'Welcome! how did you get here?'
         keys = [utils.random(32) for _ in xrange(100)]
