@@ -116,7 +116,7 @@ class Test_SecretBox2(unittest.TestCase):
         print(p)
 
     def test_recursive_boxes(self):
-        n = 10
+        n = 20
         keygen = imap(lambda i: sha256(str(i)).digest(), xrange(n))
         self._recursive_boxes(keygen, n)
 
