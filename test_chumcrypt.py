@@ -87,6 +87,8 @@ class Test_SecretBox2(unittest.TestCase):
         keys = [k for k in keygen]
         print keys
         packages = []
+        p = None
+        #
         for i in xrange(n):
             box = SecretBox(keys[i])
             if i == 0:
