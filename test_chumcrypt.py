@@ -126,13 +126,13 @@ class Test_SecretBox2(unittest.TestCase):
                 msg = packages[i-1]
             p = box.encrypt(msg)
             packages.append(p)
-        keys.reverse()
-        packages.reverse()
         #
         # Decrypt each package p in packages. That is, n decrypt operations
         # for the first package, (n-1) for the second and so forth.
         # Assert success after each completed package series.
         #
+        keys.reverse()
+        packages.reverse()
         for i in xrange(len(packages)):
             p = packages[i]
             for key in keys[i:]:
