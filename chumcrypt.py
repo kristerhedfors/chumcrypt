@@ -23,14 +23,16 @@ def hmacsha256(key, msg=None):
 
 
 class utils(object):
-    ''' Class for collecting entropy from within python environment in a
+    '''
+    Class for collecting entropy from within python environment in a
     portable manner.
     '''
     _entropy_pool = None
 
     @classmethod
     def _entropy_from_obj(cls, o):
-        ''' Collect entropy from all attributes of an object.
+        '''
+        Collect entropy from all attributes of an object.
         '''
         from operator import attrgetter as ag
         h = sha256()
@@ -53,7 +55,8 @@ class utils(object):
 
     @classmethod
     def _entropy_gather(cls, extra=''):
-        ''' Collect entropy from various sources on the system.
+        '''
+        Collect entropy from various sources on the system.
         '''
         rand = random.SystemRandom()
         h = sha256()
@@ -67,7 +70,8 @@ class utils(object):
 
     @classmethod
     def random(cls, n=32):
-        ''' Return 32 bytes of freshly generated entropy.
+        '''
+        Return 32 bytes of freshly generated entropy.
         '''
         res = ''
         pool = cls._entropy_pool
@@ -82,8 +86,9 @@ class utils(object):
 
     @classmethod
     def gen_key(cls, iterations=10**6):
-        ''' Generate a key suitable to use with SecretBox.
-            Lower `iterations` to something like 10**4 if speed is a concern.
+        '''
+        Generate a key suitable to use with SecretBox.
+        Lower `iterations` to something like 10**4 if speed is a concern.
         '''
         key = cls.random(64)
         salt = cls.random(64)
@@ -110,7 +115,8 @@ def main(*args):
 
 
 class ChumCipher(object):
-    ''' ChumCipher provides a poor-man's stream cipher based upon
+    '''
+    ChumCipher provides a poor-man's stream cipher based upon
     cryptographic hashing algorithms available in the Python 2
     standard library.
 
@@ -145,7 +151,8 @@ class ChumCipher(object):
         return hmacsha256(self._key, msg).digest()
 
     def _inc(self):
-        ''' grow buffer with one block
+        '''
+        grow buffer with one block
         '''
         block_id = struct.pack('Q', self._counter)
         chum = self._hmac(self._nonce + block_id)
@@ -153,7 +160,8 @@ class ChumCipher(object):
         self._counter += 1
 
     def _read_chum(self, n):
-        ''' return n bytes from buffer
+        '''
+        return n bytes from buffer
         '''
         res = ''
         while n > 0:
@@ -166,14 +174,16 @@ class ChumCipher(object):
         return res
 
     def _xor(self, s1, s2):
-        ''' xor two strings
+        '''
+        xor two strings
         '''
         assert len(s1) == len(s2)
         x = [chr(ord(a) ^ ord(b)) for a, b in zip(s1, s2)]
         return ''.join(x)
 
     def read(self, n):
-        ''' read and xor n bytes
+        '''
+        read and xor n bytes
         '''
         buf = self._f.read(n)
         chum = self._read_chum(len(buf))
@@ -181,6 +191,19 @@ class ChumCipher(object):
 
 
 class SecretBox(object):
+    '''
+    SecretBox is similar to nacl.secret.SecretBox.
+    It allows for a poor man's pure python, no-dependencies
+    authenticated symmetric-key encryption based upon SHA256.
+
+    >>> import chumcrypt
+    >>> key = chumcrypt.utils.gen_key()
+    >>> box = chumcrypt.SecretBox(key)
+    >>> msg = 'all your secret are belong to US'
+    >>> encrypted = box.encrypt(msg)
+    >>> box.decrypt(encrypted) == msg
+    True
+    '''
     def __init__(self, key, cipher_cls=ChumCipher):
         self._seal_key = hmacsha256(key, "seal").digest()
         self._cipher_key = hmacsha256(key, "cipher").digest()
@@ -193,16 +216,30 @@ class SecretBox(object):
         return self._cipher_cls(self._cipher_key, nonce, msg)
 
     def seal(self, content):
+        '''
+        Append a HMACSHA256-digest of `content`, created using the `key`
+        passed to SecretBox constructor.
+        Returns content with the digest appended.
+        '''
         sealed = (content + self._hmac(content))
         return sealed
 
     def unseal(self, sealed):
+        '''
+        Validate and remove the SHA256HMAC digest at the end of `sealed`.
+        Returns content without the signature hash.
+        Raises AssertionError if the digest is invalid.
+        '''
         assert len(sealed) >= 32
         content, sig = sealed[:-32], sealed[-32:]
         assert self._hmac(content) == sig
         return content
 
     def encrypt(self, msg, nonce=None):
+        '''
+        Encrypt and seal msg with the `key` supplied to the constructor.
+        Returns sealed ciphertext.
+        '''
         if not nonce:
             nonce = utils.random(16)
         assert len(nonce) == 16
@@ -212,6 +249,11 @@ class SecretBox(object):
         return package
 
     def decrypt(self, package):
+        '''
+        Encrypt and seal msg with the `key` supplied to the constructor.
+        Returns the validated and decrypted plaintext.
+        Raises AssertionError if signature validation fails.
+        '''
         content = self.unseal(package)
         assert len(content) >= 16
         nonce, ciphertext = content[:16], content[16:]
