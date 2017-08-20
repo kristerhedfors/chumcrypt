@@ -10,7 +10,7 @@ import logging
 # import hmac
 # import struct
 import StringIO
-from iterators import imap
+from itertools import imap
 
 from chumcrypt import ChumCipher
 from chumcrypt import SecretBox
