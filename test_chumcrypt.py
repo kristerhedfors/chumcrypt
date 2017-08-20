@@ -88,12 +88,18 @@ class Test_SecretBox2(unittest.TestCase):
         for i in xrange(n):
             box = SecretBox(keys[i])
             if i == 0:
-                msg = 'what am I?'
+                msg = 'Welcome! how did you get here?'
             else:
                 msg = packages[i-1]
-            p = box.encrypt(
+            p = box.encrypt(msg)
             packages.append(p)
-
+        keys.reverse()
+        packages.reverse()
+        for i in xrange(len(packages)):
+            p = packages[i]
+            for key in keys[i:]:
+                p = SecretBox(key).decrypt(p)
+        assert p == 'Welcome! how did you get here?'
 
 
 
