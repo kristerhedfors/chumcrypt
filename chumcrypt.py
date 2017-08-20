@@ -15,7 +15,7 @@ import random
 from hashlib import sha256
 
 
-__all__ = ['ChumReader']
+__all__ = ['ChumCipher']
 
 
 def hmacsha256(key, msg=None):
@@ -88,7 +88,7 @@ class utils(object):
 
 
 logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(': ***ChumReader*** :')
+logger = logging.getLogger(': ***ChumCipher*** :')
 
 
 def debug(*args, **kw):
@@ -105,22 +105,32 @@ def main(*args):
     pass
 
 
-class ChumReader(object):
-    ''' ChumReader provides a poor-man's stream cipher based upon
+class ChumCipher(object):
+    ''' ChumCipher provides a poor-man's stream cipher based upon
     cryptographic hashing algorithms available in the Python 2
     standard library.
 
     >>> key = 'k' * 32
     >>> nonce = 'n' * 16
-    >>> cc = ChumReader(key, nonce)
-    >>> chum = cc.read_chum(20)
+    >>> cc = ChumCipher(f=None, key=key, nonce=nonce)
+    >>> chum = cc._read_chum(20)
     >>> print chum
     t\x9c^\xbbj`\x9a\x89\x8f\xbbq\xc7#\xd6:F\x1a#\x0c\x12
 
+    >>> key = utils.gen_key()
+    >>> nonce = utils.random(16)
+    >>> msg = 'all your secret are belong to US'
+    >>> f = StringIO.StringIO(msg)
+    >>> encryptor = ChumCipher(f, key, nonce)
+    >>> decryptor = ChumCipher(encryptor, key, nonce)
+    >>> decryptor.read(len(msg)) == msg
+    True
+
     '''
-    def __init__(self, key, nonce=None):
+    def __init__(self, f, key, nonce=None):
         assert len(key) == 32
         assert len(nonce) >= 16
+        self._f = f
         self._key = key
         self._nonce = nonce
         self._counter = 0
@@ -137,7 +147,7 @@ class ChumReader(object):
         self._buffer += chum
         self._counter += 1
 
-    def read_chum(self, n):
+    def _read_chum(self, n):
         ''' return n bytes from buffer
         '''
         res = ''
@@ -150,25 +160,6 @@ class ChumReader(object):
             n -= blsize
         return res
 
-
-class ChumCipher(ChumReader):
-    '''
-    >>> key = utils.gen_key()
-    >>> nonce = utils.random(16)
-    >>> msg = 'all your secret are belong to US'
-    >>> f = StringIO.StringIO(msg)
-    >>> encryptor = ChumCipher(f, key, nonce)
-    >>> decryptor = ChumCipher(encryptor, key, nonce)
-    >>> decryptor.read(len(msg)) == msg
-    True
-    '''
-
-    def __init__(self, f, key, nonce=None):
-        '''
-        '''
-        self._f = f
-        super(ChumCipher, self).__init__(key, nonce=nonce)
-
     def _xor(self, s1, s2):
         ''' xor two strings
         '''
@@ -180,7 +171,7 @@ class ChumCipher(ChumReader):
         ''' read and xor n bytes
         '''
         buf = self._f.read(n)
-        chum = self.read_chum(len(buf))
+        chum = self._read_chum(len(buf))
         return self._xor(buf, chum)
 
 
