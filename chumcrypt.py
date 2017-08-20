@@ -81,10 +81,13 @@ class utils(object):
         return res[:n]
 
     @classmethod
-    def gen_key(cls):
-        key = cls.random(32)
-        salt = cls.random(16)
-        key = hashlib.pbkdf2_hmac('sha256', key, salt, 10**4)
+    def gen_key(cls, iterations=10**6):
+        ''' Generate a key suitable to use with SecretBox.
+            Lower `iterations` to something like 10**4 if speed is a concern.
+        '''
+        key = cls.random(64)
+        salt = cls.random(64)
+        key = hashlib.pbkdf2_hmac('sha256', key, salt, iterations)
         return key
 
 
@@ -121,8 +124,7 @@ class ChumCipher(object):
     >>> key = utils.gen_key()
     >>> nonce = utils.random(16)
     >>> msg = 'all your secret are belong to US'
-    >>> f = StringIO.StringIO(msg)
-    >>> encryptor = ChumCipher(key, nonce, f)
+    >>> encryptor = ChumCipher(key, nonce, msg)
     >>> decryptor = ChumCipher(key, nonce, encryptor)
     >>> decryptor.read(len(msg)) == msg
     True
