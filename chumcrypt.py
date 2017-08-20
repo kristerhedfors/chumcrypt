@@ -13,6 +13,7 @@ import time
 import StringIO
 import random
 from hashlib import sha256
+from itertools import imap
 
 
 __all__ = ['ChumCipher']
@@ -33,22 +34,23 @@ class utils(object):
         ''' Collect entropy from all attributes of an object.
         '''
         from operator import attrgetter as ag
-        #                         .--.
-        #                        (._=.\
-        #                        `- - j)
-        #                         \- /
-        #                        ._| |__
-        #                       (/      \
-        data = map(repr, ag(*dir(o))(o))
-        #                    .__)|  " /\, \
-        #                   //, _/ , (_/ /
-        #                  /"        / ('
-        #                  \  \___\/ \\`
-        #                   \  |   \|  |^,
-        #                    \ |    \  |)
-        #                     ) \    ._/
-        #                    /  )
-        return sha256(''.join(data)).digest()
+        h = sha256()
+        #                                 .--.
+        #                                (._=.\
+        #                                `- - j)
+        #                                 \- /
+        #                                ._| |__
+        #                               (/      \
+        map(h.update, imap(repr, ag(*dir(o))(o)))
+        #                            .__)|  " /\, \
+        #                           //, _/ , (_/ /
+        #                          /"        / ('
+        #                          \  \___\/ \\`
+        #                           \  |   \|  |^,
+        #                            \ |    \  |)
+        #                             ) \    ._/
+        #                            /  )
+        return h.digest()
 
     @classmethod
     def _entropy_gather(cls, extra=''):
@@ -58,7 +60,7 @@ class utils(object):
         h = sha256()
         objlist = range(32) + globals().values() + locals().values()
         rand.shuffle(objlist)
-        map(h.update, [cls._entropy_from_obj(o) for o in objlist])
+        map(h.update, imap(cls._entropy_from_obj, objlist))
         h.update(os.urandom(64))
         h.update(str(time.time()))
         h.update(extra)
