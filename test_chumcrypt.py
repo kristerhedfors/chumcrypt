@@ -103,6 +103,7 @@ class Test_SecretBox2(unittest.TestCase):
             p = packages[i]
             for key in keys[i:]:
                 p = SecretBox(key).decrypt(p)
+                print p
         assert p == 'Welcome! how did you get here?'
         print p
 
