@@ -38,13 +38,13 @@ class Test_ChumCipher(unittest.TestCase):
         key = utils.gen_key()
         assert len(key) == 32
         nonce = utils.random(16)
-        cc = ChumCipher(f=f, key=key, nonce=nonce)
+        cc = ChumCipher(key, nonce, f)
         print(repr(cc.read(29)))
 
     def test_longer_irregular_read_lengths(self):
         key = 'a' * 32
         nonce = 'n' * 16
-        cc = ChumCipher(f=None, key=key, nonce=nonce)
+        cc = ChumCipher(key, nonce)
         n = 0
         while n < 2000:
             assert len(cc._read_chum(n)) == n

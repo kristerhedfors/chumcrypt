@@ -114,7 +114,7 @@ class ChumCipher(object):
 
     >>> key = 'k' * 32
     >>> nonce = 'n' * 16
-    >>> cc = ChumCipher(f=None, key=key, nonce=nonce)
+    >>> cc = ChumCipher(key, nonce)
     >>> chum = cc._read_chum(20)
     >>> print chum
     t\x9c^\xbbj`\x9a\x89\x8f\xbbq\xc7#\xd6:F\x1a#\x0c\x12
@@ -123,18 +123,20 @@ class ChumCipher(object):
     >>> nonce = utils.random(16)
     >>> msg = 'all your secret are belong to US'
     >>> f = StringIO.StringIO(msg)
-    >>> encryptor = ChumCipher(f, key, nonce)
-    >>> decryptor = ChumCipher(encryptor, key, nonce)
+    >>> encryptor = ChumCipher(key, nonce, f)
+    >>> decryptor = ChumCipher(key, nonce, encryptor)
     >>> decryptor.read(len(msg)) == msg
     True
 
     '''
-    def __init__(self, f, key, nonce=None):
+    def __init__(self, key, nonce=None, msg_or_file=None):
         assert len(key) == 32
         assert len(nonce) >= 16
-        self._f = f
+        if type(msg_or_file) in (str, unicode):
+            msg_or_file = StringIO.StringIO(msg_or_file)
         self._key = key
         self._nonce = nonce
+        self._f = msg_or_file
         self._counter = 0
         self._buffer = ''
 
@@ -179,15 +181,15 @@ class ChumCipher(object):
 
 class SecretBox(object):
     def __init__(self, key, cipher_cls=ChumCipher):
-        self._hmac_key = hmacsha256(key, "hmac").digest()
-        self._crypt_key = hmacsha256(key, "crypt").digest()
+        self._seal_key = hmacsha256(key, "seal").digest()
+        self._cipher_key = hmacsha256(key, "cipher").digest()
         self._cipher_cls = cipher_cls
 
     def _hmac(self, msg):
-        return hmacsha256(self._hmac_key, msg).digest()
+        return hmacsha256(self._seal_key, msg).digest()
 
-    def _new_crypt(self, f, nonce, **kw):
-        return self._cipher_cls(f=f, key=self._crypt_key, nonce=nonce, **kw)
+    def _new_cipher(self, nonce, msg):
+        return self._cipher_cls(self._cipher_key, nonce, msg)
 
     def seal(self, content):
         sealed = (content + self._hmac(content))
@@ -203,9 +205,8 @@ class SecretBox(object):
         if not nonce:
             nonce = utils.random(16)
         assert len(nonce) >= 16
-        f = StringIO.StringIO(msg)
-        crypt = self._new_crypt(f, nonce)
-        ciphertext = crypt.read(len(msg))
+        cipher = self._new_cipher(nonce, msg)
+        ciphertext = cipher.read(len(msg))
         package = self.seal(nonce + ciphertext)
         return package
 
@@ -213,8 +214,7 @@ class SecretBox(object):
         content = self.unseal(package)
         assert len(content) >= 16
         nonce, ciphertext = content[:16], content[16:]
-        f = StringIO.StringIO(ciphertext)
-        crypt = self._new_crypt(f, nonce)
+        crypt = self._new_cipher(nonce, ciphertext)
         msg = crypt.read(len(ciphertext))
         return msg
 
