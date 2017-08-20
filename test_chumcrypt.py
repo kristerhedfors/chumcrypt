@@ -102,8 +102,9 @@ class Test_SecretBox2(unittest.TestCase):
         assert p == 'Welcome! how did you get here?'
 
     def test_recursive_boxes(self):
-        keygen = imap(lambda i: sha256(str(i)).digest(), xrange(10))
-        self._recursive_boxes(keygen, len(keygen))
+        n = 10
+        keygen = imap(lambda i: sha256(str(i)).digest(), xrange(n))
+        self._recursive_boxes(keygen, n)
 
 
 
