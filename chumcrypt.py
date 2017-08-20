@@ -15,7 +15,6 @@ import random
 from hashlib import sha256
 from itertools import imap
 
-
 __all__ = ['ChumCipher']
 
 
@@ -116,7 +115,7 @@ class ChumCipher(object):
     >>> nonce = 'n' * 16
     >>> cc = ChumCipher(key, nonce)
     >>> chum = cc._read_chum(20)
-    >>> print chum
+    >>> print(chum)
     t\x9c^\xbbj`\x9a\x89\x8f\xbbq\xc7#\xd6:F\x1a#\x0c\x12
 
     >>> key = utils.gen_key()
@@ -204,7 +203,7 @@ class SecretBox(object):
     def encrypt(self, msg, nonce=None):
         if not nonce:
             nonce = utils.random(16)
-        assert len(nonce) >= 16
+        assert len(nonce) == 16
         cipher = self._new_cipher(nonce, msg)
         ciphertext = cipher.read(len(msg))
         package = self.seal(nonce + ciphertext)
