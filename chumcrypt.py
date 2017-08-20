@@ -16,7 +16,26 @@ from hashlib import sha256
 from itertools import imap
 
 __all__ = ['ChumCipher']
+__doc__ = '''
+chumcrypt is a poor man's pure python, no external dependencies, authenticated
+symmetric-key stream cipher based upon SHA256.
 
+The API is essentially equal to the API of PyNaCL in terms of the
+SecretBox class. A box is created after you supply an encryption key.
+Box methods encrypt() and decrypt() work intuitively.
+
+One key difference is that simple assertion exceptions are thrown for all
+kinds of invalid input or failed HMAC validaion.
+
+Additionally, chumcrypt.utils.gen_key() should be used instead of pure
+chumcrypt.utils.random()-data, as it does one million rounds of PBKDF2 for
+brute force prevention. Remember that it is not impossible for an attacker able
+to provide you with a Python2 interpreter of some sort, to have fully
+controlled and well synchronized data streaming through random.SystemRandom,
+os.urandom, the active python environment as well as the current system time.
+
+Invest a few more seconds of your valuable time on key generation, folks!
+'''
 
 def hmacsha256(key, msg=None):
     return hmac.new(key, msg, sha256)
@@ -118,7 +137,7 @@ def main(*args):
 class ChumCipher(object):
     '''
     ChumCipher provides a poor-man's stream cipher based upon
-    cryptographic hashing algorithms available in the Python 2
+    cryptographic hashing algorithms available in the Python2
     standard library.
 
     >>> key = 'k' * 32
@@ -153,7 +172,7 @@ class ChumCipher(object):
 
     def _inc(self):
         '''
-        grow buffer with one block
+        Grow buffer with one block.
         '''
         block_id = struct.pack('Q', self._counter)
         chum = self._hmac(self._nonce + block_id)
@@ -162,7 +181,7 @@ class ChumCipher(object):
 
     def _read_chum(self, n):
         '''
-        return n bytes from buffer
+        Return n bytes from buffer.
         '''
         res = ''
         while n > 0:
@@ -176,7 +195,7 @@ class ChumCipher(object):
 
     def _xor(self, s1, s2):
         '''
-        xor two strings
+        Xor two strings.
         '''
         assert len(s1) == len(s2)
         x = [chr(ord(a) ^ ord(b)) for a, b in zip(s1, s2)]

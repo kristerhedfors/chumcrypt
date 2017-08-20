@@ -10,6 +10,7 @@ import logging
 # import hmac
 # import struct
 import StringIO
+from iterator import imap
 
 from chumcrypt import ChumCipher
 from chumcrypt import SecretBox
@@ -72,6 +73,29 @@ class Test_SecretBox(unittest.TestCase):
         msg = 'hello chum'
         smsg = box.seal(msg)
         assert box.unseal(smsg) == msg
+
+
+class Test_SecretBox2(unittest.TestCase):
+
+    def _crypt_decrypt(self, key=None, nonce=None):
+        key = key or utils.random(32)  # faster
+        nonce = key or utils.random(16)  # faster
+
+    def _recursive_boxes(self, keygen, n):
+        boxes = []
+        keys = [keygen() for _ in xrange(n)]
+        packages = []
+        for i in xrange(n):
+            box = SecretBox(keys[i])
+            if i == 0:
+                msg = 'what am I?'
+            else:
+                msg = packages[i-1]
+            p = box.encrypt(
+            packages.append(p)
+
+
+
 
 
 if __name__ == '__main__':
