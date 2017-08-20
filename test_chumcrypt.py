@@ -84,6 +84,7 @@ class Test_SecretBox2(unittest.TestCase):
     def _recursive_boxes(self, keygen, n):
         boxes = []
         keys = [keygen for _ in xrange(n)]
+        print keys
         packages = []
         for i in xrange(n):
             box = SecretBox(keys[i])
