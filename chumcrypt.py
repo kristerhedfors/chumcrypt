@@ -5,9 +5,8 @@
 #
 # TODO
 # + key expansion
-# * split into hmac and crypt key
+# + split into hmac and crypt key
 # + native entropy
-# + clarify entropy, make it mean entropy as a random source
 # * (tool able to validate signatures of its components over https)
 #
 #
@@ -39,7 +38,6 @@ class EntropyMixin(object):
     ''' Class for collecting entropy from within python environment in a
     portable manner.
     '''
-
     _entropy_pool = None
 
     @classmethod
@@ -118,7 +116,6 @@ class ChumCipher(object):
         assert len(nonce) >= 16
         self._key = key
         self._nonce = nonce
-        self._state = ''
         self._counter = 0
         self._buffer = ''
 
@@ -128,8 +125,7 @@ class ChumCipher(object):
     def _inc(self):
         ''' grow buffer with one block
         '''
-        assert self._buffer == ''
-        block_id = struct.pack('I', self._counter)
+        block_id = struct.pack('Q', self._counter)
         chum = self._hmac(self._nonce + block_id)
         self._buffer += chum
         self._counter += 1
@@ -139,13 +135,12 @@ class ChumCipher(object):
         '''
         res = ''
         while n > 0:
-            batch_size = min(n, 32)
-            curr, self._buffer = self._buffer[:batch_size], \
-                self._buffer[batch_size:]
-            if self._buffer == '' or len(curr) < batch_size:
+            blsize = min(n, 32)
+            if len(self._buffer) < blsize:
                 self._inc()
-            res += curr
-            n -= len(curr)
+            block, self._buffer = self._buffer[:blsize], self._buffer[blsize:]
+            res += block
+            n -= blsize
         return res
 
 
@@ -212,14 +207,11 @@ class SecretBox(object):
     def encrypt(self, msg, nonce=None):
         if not nonce:
             nonce = self.new_nonce()
-        if len(nonce) != self.NONCE_LEN:
-            msg = 'Invalid nonce length. Try using new_nonce().'
-            raise Exception(msg)
+        assert len(nonce) == self.NONCE_LEN
         f = StringIO.StringIO(msg)
         crypt = self._new_crypt(f, nonce)
         ciphertext = crypt.read(len(msg))
         package = self.seal(nonce + ciphertext)
-        assert crypt.read(1) == ''
         return package
 
     def decrypt(self, package):
@@ -229,7 +221,8 @@ class SecretBox(object):
         nonce, ciphertext = content[:nonce_len], content[nonce_len:]
         f = StringIO.StringIO(ciphertext)
         crypt = self._new_crypt(f, nonce)
-        return crypt.read(len(ciphertext))
+        msg = crypt.read(len(ciphertext))
+        return msg
 
 
 if __name__ == '__main__':
