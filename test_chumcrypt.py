@@ -103,9 +103,8 @@ class Test_SecretBox2(unittest.TestCase):
             p = packages[i]
             for key in keys[i:]:
                 p = SecretBox(key).decrypt(p)
-                print p
+                print('MESSAGE ', repr(p))
         assert p == 'Welcome! how did you get here?'
-        print p
 
     def test_recursive_boxes(self):
         n = 10
