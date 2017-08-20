@@ -89,6 +89,9 @@ class Test_SecretBox2(unittest.TestCase):
         packages = []
         p = None
         #
+        # Create n packages where package[n-1] equals the plaintext
+        # of package[n].
+        #
         for i in xrange(n):
             box = SecretBox(keys[i])
             if i == 0:
@@ -99,12 +102,18 @@ class Test_SecretBox2(unittest.TestCase):
             packages.append(p)
         keys.reverse()
         packages.reverse()
+        #
+        # Decrypt each package p in packages. That is, n decrypt operations
+        # for the first package, (n-1) for the second and so forth.
+        # Assert success after each completed package series.
+        #
         for i in xrange(len(packages)):
             p = packages[i]
             for key in keys[i:]:
                 p = SecretBox(key).decrypt(p)
-                print('MESSAGE ', repr(p))
+            assert p == 'Welcome! how did you get here?'
         assert p == 'Welcome! how did you get here?'
+        print(p)
 
     def test_recursive_boxes(self):
         n = 10
