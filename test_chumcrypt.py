@@ -83,7 +83,7 @@ class Test_SecretBox2(unittest.TestCase):
 
     def _recursive_boxes(self, keygen, n):
         boxes = []
-        keys = [keygen() for _ in xrange(n)]
+        keys = [keygen for _ in xrange(n)]
         packages = []
         for i in xrange(n):
             box = SecretBox(keys[i])
@@ -100,6 +100,13 @@ class Test_SecretBox2(unittest.TestCase):
             for key in keys[i:]:
                 p = SecretBox(key).decrypt(p)
         assert p == 'Welcome! how did you get here?'
+
+    def test_recursive_boxes(self):
+        keygen = imap(lambda i: sha256(str(i)).digest(), xrange(10))
+        self._recursive_boxes(keygen, len(keygen))
+
+
+
 
 
 
