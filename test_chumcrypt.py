@@ -9,7 +9,6 @@ import logging
 # import hashlib
 # import hmac
 # import struct
-import os
 import StringIO
 
 from chumcrypt import ChumCipher
@@ -38,7 +37,7 @@ class Test_ChumCipher(unittest.TestCase):
         f = StringIO.StringIO('perkele')
         key = utils.gen_key()
         assert len(key) == 32
-        nonce = os.urandom(16)
+        nonce = utils.random(16)
         cc = ChumCipher(f=f, key=key, nonce=nonce)
         print(repr(cc.read(29)))
 
@@ -62,7 +61,7 @@ class Test_SecretBox(unittest.TestCase):
         pt = box.decrypt(package)
         assert pt == 'P' * 32
         for i in xrange(100):
-            plaintext = os.urandom(i)
+            plaintext = utils.random(i)
             nonce = 'N' * 16
             package = box.encrypt(plaintext, nonce)
             assert plaintext == box.decrypt(package)
