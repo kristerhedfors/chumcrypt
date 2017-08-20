@@ -3,18 +3,6 @@
 #
 # Copyright(c) 2017 - Krister Hedfors
 #
-# TODO
-# + key expansion
-# + split into hmac and crypt key
-# + native entropy
-# * (tool able to validate signatures of its components over https)
-#
-#
-# Notation:
-#   # A     =assertion section
-#   # V     =local variable initiation section
-#   # C     =Code section
-#
 import sys
 import logging
 import hashlib
@@ -27,7 +15,7 @@ import random
 from hashlib import sha256
 
 
-__all__ = ['ChumCipher']
+__all__ = ['ChumReader']
 
 
 def hmacsha256(key, msg=None):
@@ -91,9 +79,16 @@ class utils(object):
         cls._entropy_pool = pool
         return res[:n]
 
+    @classmethod
+    def gen_key(cls):
+        key = cls.random(32)
+        salt = cls.random(16)
+        key = hashlib.pbkdf2_hmac('sha256', key, salt, 10**4)
+        return key
+
 
 logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(': ***ChumCipher*** :')
+logger = logging.getLogger(': ***ChumReader*** :')
 
 
 def debug(*args, **kw):
@@ -110,21 +105,19 @@ def main(*args):
     pass
 
 
-class ChumCipher(object):
-    ''' ChumCipher provides a poor-man's stream cipher based upon
+class ChumReader(object):
+    ''' ChumReader provides a poor-man's stream cipher based upon
     cryptographic hashing algorithms available in the Python 2
     standard library.
 
     >>> key = 'k' * 32
     >>> nonce = 'n' * 16
-    >>> cc = ChumCipher(key, nonce)
+    >>> cc = ChumReader(key, nonce)
     >>> chum = cc.read_chum(20)
     >>> print chum
     t\x9c^\xbbj`\x9a\x89\x8f\xbbq\xc7#\xd6:F\x1a#\x0c\x12
 
     '''
-    KEYGEN_ITERATIONS = 10**4
-
     def __init__(self, key, nonce=None):
         assert len(key) == 32
         assert len(nonce) >= 16
@@ -158,30 +151,23 @@ class ChumCipher(object):
         return res
 
 
-class ChumCrypt(ChumCipher):
+class ChumCipher(ChumReader):
     '''
-    >>> key = ChumCrypt.new_key()
+    >>> key = utils.gen_key()
     >>> nonce = utils.random(16)
     >>> msg = 'all your secret are belong to US'
     >>> f = StringIO.StringIO(msg)
-    >>> encryptor = ChumCrypt(f, key, nonce)
-    >>> decryptor = ChumCrypt(encryptor, key, nonce)
+    >>> encryptor = ChumCipher(f, key, nonce)
+    >>> decryptor = ChumCipher(encryptor, key, nonce)
     >>> decryptor.read(len(msg)) == msg
     True
     '''
-
-    @classmethod
-    def new_key(cls):
-        key = utils.random(32)
-        salt = utils.random(16)
-        key = hashlib.pbkdf2_hmac('sha256', key, salt, cls.KEYGEN_ITERATIONS)
-        return key
 
     def __init__(self, f, key, nonce=None):
         '''
         '''
         self._f = f
-        super(ChumCrypt, self).__init__(key, nonce=nonce)
+        super(ChumCipher, self).__init__(key, nonce=nonce)
 
     def _xor(self, s1, s2):
         ''' xor two strings
@@ -199,23 +185,18 @@ class ChumCrypt(ChumCipher):
 
 
 class SecretBox(object):
-
-    @classmethod
-    def new_key(cls):
-        return ChumCrypt.new_key()
-
     NONCE_LEN = 16
 
-    def __init__(self, key, crypt_cls=ChumCrypt):
+    def __init__(self, key, cipher_cls=ChumCipher):
         self._hmac_key = hmacsha256(key, "hmac").digest()
         self._crypt_key = hmacsha256(key, "crypt").digest()
-        self._crypt_cls = crypt_cls
+        self._cipher_cls = cipher_cls
 
     def _hmac(self, msg):
         return hmacsha256(self._hmac_key, msg).digest()
 
     def _new_crypt(self, f, nonce, **kw):
-        return self._crypt_cls(f=f, key=self._crypt_key, nonce=nonce, **kw)
+        return self._cipher_cls(f=f, key=self._crypt_key, nonce=nonce, **kw)
 
     def seal(self, content):
         sealed = (content + self._hmac(content))
