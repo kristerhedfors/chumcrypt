@@ -113,6 +113,14 @@ class Test_SecretBox(unittest.TestCase):
         keygen = imap(lambda i: sha256(str(i)).digest(), xrange(n))
         self._recursive_boxes(keygen, n)
 
+    def test_vary_msg_size(self):
+        box = SecretBox(util.gen_key())
+        for i in xrange(100):
+            msg = 'y' * i
+            assert box.decrypt(box.encrypt(msg)) == msg
+
+
+
 
 class Test_ChumCipher(unittest.TestCase):
 
