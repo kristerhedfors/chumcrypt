@@ -176,8 +176,6 @@ class ChumCipher(object):
 
 
 class SecretBox(object):
-    NONCE_LEN = 16
-
     def __init__(self, key, cipher_cls=ChumCipher):
         self._hmac_key = hmacsha256(key, "hmac").digest()
         self._crypt_key = hmacsha256(key, "crypt").digest()
@@ -202,7 +200,7 @@ class SecretBox(object):
     def encrypt(self, msg, nonce=None):
         if not nonce:
             nonce = utils.random(16)
-        assert len(nonce) == self.NONCE_LEN
+        assert len(nonce) >= 16
         f = StringIO.StringIO(msg)
         crypt = self._new_crypt(f, nonce)
         ciphertext = crypt.read(len(msg))
@@ -211,9 +209,8 @@ class SecretBox(object):
 
     def decrypt(self, package):
         content = self.unseal(package)
-        nonce_len = self.NONCE_LEN
-        assert len(content) >= nonce_len
-        nonce, ciphertext = content[:nonce_len], content[nonce_len:]
+        assert len(content) >= 16
+        nonce, ciphertext = content[:16], content[16:]
         f = StringIO.StringIO(ciphertext)
         crypt = self._new_crypt(f, nonce)
         msg = crypt.read(len(ciphertext))
