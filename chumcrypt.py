@@ -25,8 +25,14 @@ import os
 import time
 import StringIO
 import random
+from hashlib import sha256
+
 
 __all__ = ['ChumCipher']
+
+
+def hmacsha256(key, msg=None):
+    return hmac.new(key, msg, sha256)
 
 
 class EntropyMixin(object):
@@ -39,30 +45,30 @@ class EntropyMixin(object):
     @classmethod
     def _entropy_from_obj(cls, o):
         from operator import attrgetter as ag
-        #                          .--.
-        #                         (._=.\
-        #                         `- - j)
-        #                          \- /
-        #                         ._| |__
-        #                        (/      \
+        #                         .--.
+        #                        (._=.\
+        #                        `- - j)
+        #                         \- /
+        #                        ._| |__
+        #                       (/      \
         data = map(repr, ag(*dir(o))(o))
-        #                     .__)|  " /\, \
-        #                    //, _/ , (_/ /
-        #                   /"        / ('
-        #                   \  \___\/ \\`
-        #                    \  |   \|  |^,
-        #                     \ |    \  |)
-        #                      ) \    ._/
-        #                     /  )
-        return hashlib.sha512(''.join(data)).digest()
+        #                    .__)|  " /\, \
+        #                   //, _/ , (_/ /
+        #                  /"        / ('
+        #                  \  \___\/ \\`
+        #                   \  |   \|  |^,
+        #                    \ |    \  |)
+        #                     ) \    ._/
+        #                    /  )
+        return sha256(''.join(data)).digest()
 
     @classmethod
     def _entropy_gather(cls, extra=''):
         # V
         rand = random.SystemRandom()
-        h = hashlib.sha512()
+        h = sha256()
         # C
-        objlist = ["?"] + range(64) + globals().values() + locals().values()
+        objlist = range(32) + globals().values() + locals().values()
         rand.shuffle(objlist)
         map(h.update, [cls._entropy_from_obj(o) for o in objlist])
         h.update(os.urandom(64))
@@ -72,12 +78,12 @@ class EntropyMixin(object):
 
     @classmethod
     def get_entropy(cls):
-        ''' Return 64 bytes of fresh entropy. May be OK to use as key directly.
+        ''' Return 32 bytes of fresh entropy.
         '''
         if not cls._entropy_pool:
             cls._entropy_pool = cls._entropy_gather()
-        e = hashlib.sha512(cls._entropy_pool).digest()
-        h = hmac.new(e, cls._entropy_pool, hashlib.sha512)
+        e = sha256(cls._entropy_pool).digest()
+        h = hmacsha256(e, cls._entropy_pool)
         cls._entropy_pool = h.digest()
         return e
 
@@ -105,55 +111,35 @@ class ChumCipher(object):
     cryptographic hashing algorithms available in the Python 2
     standard library.
     '''
-    DIGESTMOD = hashlib.sha256
-    HASH_NAME = DIGESTMOD().name
-    KEY_SIZE = DIGESTMOD().digest_size
-    DIGEST_SIZE = DIGESTMOD().digest_size
     KEYGEN_ITERATIONS = 10**4
-    MIN_IV_LEN = 16
 
-    def __init__(self, key='', nonce='', entropy='', digestmod=DIGESTMOD):
-        # A
-        assert len(key) == self.KEY_SIZE
-        if (len(nonce) + len(entropy)) < self.MIN_IV_LEN:
-            err_msg = 'Not enough IV or entropy material: '
-            err_msg += 'len(nonce) + len(entropy) < {0}'.format(
-                self.MIN_IV_LEN)
-            raise Exception(err_msg)
-        # V
+    def __init__(self, key='', nonce=''):
+        assert len(key) == 32
+        assert len(nonce) >= 16
         self._key = key
         self._nonce = nonce
-        self._entropy = entropy
-        self._digestmod = digestmod
         self._state = ''
         self._counter = 0
         self._buffer = ''
 
     def _hmac(self, msg):
-        return hmac.new(self._key, msg, digestmod=self._digestmod).digest()
+        return hmacsha256(self._key, msg).digest()
 
     def _inc(self):
         ''' grow buffer with one block
         '''
-        # A
         assert self._buffer == ''
-        # V
-        entropy = self._entropy
         block_id = struct.pack('I', self._counter)
-        nonce = self._nonce
-        # C
-        chum = self._hmac(entropy + nonce + block_id)
+        chum = self._hmac(self._nonce + block_id)
         self._buffer += chum
         self._counter += 1
 
     def read_chum(self, n):
         ''' return n bytes from buffer
         '''
-        # V
         res = ''
-        # C
         while n > 0:
-            batch_size = min(n, 16)
+            batch_size = min(n, 32)
             curr, self._buffer = self._buffer[:batch_size], \
                 self._buffer[batch_size:]
             if self._buffer == '' or len(curr) < batch_size:
@@ -169,8 +155,7 @@ class ChumCrypt(ChumCipher, EntropyMixin):
     def new_key(cls):
         key = cls.get_entropy()
         salt = cls.get_entropy()
-        key = hashlib.pbkdf2_hmac(cls.HASH_NAME, key, salt,
-                                  cls.KEYGEN_ITERATIONS)
+        key = hashlib.pbkdf2_hmac('sha256', key, salt, cls.KEYGEN_ITERATIONS)
         return key
 
     def __init__(self, f, **kw):
@@ -185,7 +170,7 @@ class ChumCrypt(ChumCipher, EntropyMixin):
         return ''.join(x)
 
     def read(self, n):
-        ''' read and xor n bytes from fa and fb
+        ''' read and xor n bytes
         '''
         buf = self._f.read(n)
         chum = self.read_chum(len(buf))
@@ -201,13 +186,12 @@ class SecretBox(object):
     NONCE_LEN = 16
 
     def __init__(self, key, crypt_cls=ChumCrypt):
-        self._hmac_key = hmac.new(key, "hmac", crypt_cls.DIGESTMOD).digest()
-        self._crypt_key = hmac.new(key, "crypt", crypt_cls.DIGESTMOD).digest()
+        self._hmac_key = hmacsha256(key, "hmac").digest()
+        self._crypt_key = hmacsha256(key, "crypt").digest()
         self._crypt_cls = crypt_cls
 
     def _hmac(self, msg):
-        return hmac.new(self._hmac_key, msg,
-                        self._crypt_cls.DIGESTMOD).digest()
+        return hmacsha256(self._hmac_key, msg).digest()
 
     def _new_crypt(self, f, nonce, **kw):
         return self._crypt_cls(f=f, key=self._crypt_key, nonce=nonce, **kw)
@@ -216,30 +200,21 @@ class SecretBox(object):
         return ChumCrypt.get_entropy()[:self.NONCE_LEN]
 
     def seal(self, content):
-        debug('..SEAL ', len(content), repr(content))
         sealed = (content + self._hmac(content))
         return sealed
 
-    def unseal(self, package):
-        # A
-        assert len(package) >= self.NONCE_LEN
-        # C
-        content, sig = package[:-self.NONCE_LEN], \
-            package[-self.NONCE_LEN:]
-        assert len(sig) <= self.NONCE_LEN
-        debug('UNSEAL ', len(content), repr(content))
+    def unseal(self, sealed):
+        assert len(sealed) >= 32
+        content, sig = sealed[:-32], sealed[-32:]
         assert self._hmac(content) == sig
         return content
 
-    def encrypt(self, msg, nonce):
-        # A
+    def encrypt(self, msg, nonce=None):
         if not nonce:
             nonce = self.new_nonce()
         if len(nonce) != self.NONCE_LEN:
-            msg = 'Invalid nonce. Try using new_nonce().'
+            msg = 'Invalid nonce length. Try using new_nonce().'
             raise Exception(msg)
-        # V
-        # C
         f = StringIO.StringIO(msg)
         crypt = self._new_crypt(f, nonce)
         ciphertext = crypt.read(len(msg))
@@ -248,12 +223,10 @@ class SecretBox(object):
         return package
 
     def decrypt(self, package):
-        # V
         content = self.unseal(package)
         nonce_len = self.NONCE_LEN
         assert len(content) >= nonce_len
-        nonce = content[:nonce_len]
-        ciphertext = content[nonce_len:]
+        nonce, ciphertext = content[:nonce_len], content[nonce_len:]
         f = StringIO.StringIO(ciphertext)
         crypt = self._new_crypt(f, nonce)
         return crypt.read(len(ciphertext))
