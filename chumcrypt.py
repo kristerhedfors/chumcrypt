@@ -60,7 +60,8 @@ class utils(object):
         '''
         rand = random.SystemRandom()
         h = sha256()
-        objlist = range(32) + globals().values() + locals().values()
+        objlist = [rand.random() for _ in xrange(64)]
+        objlist += globals().values() + locals().values()
         rand.shuffle(objlist)
         map(h.update, imap(cls._entropy_from_obj, objlist))
         h.update(os.urandom(64))
@@ -71,7 +72,7 @@ class utils(object):
     @classmethod
     def random(cls, n=32):
         '''
-        Return 32 bytes of freshly generated entropy.
+        Return `n` bytes of freshly generated entropy.
         '''
         res = ''
         pool = cls._entropy_pool
