@@ -11,6 +11,7 @@ import logging
 # import struct
 import StringIO
 from itertools import imap
+from hashlib import sha256
 
 from chumcrypt import ChumCipher
 from chumcrypt import SecretBox
