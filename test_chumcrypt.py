@@ -114,7 +114,7 @@ class Test_SecretBox(unittest.TestCase):
         self._recursive_boxes(keygen, n)
 
     def test_vary_msg_size(self):
-        box = SecretBox(util.gen_key())
+        box = SecretBox(utils.gen_key())
         for i in xrange(100):
             msg = 'y' * i
             assert box.decrypt(box.encrypt(msg)) == msg
